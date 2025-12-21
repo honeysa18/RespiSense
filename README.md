@@ -31,8 +31,10 @@ The project is structured modularly for scalability:
    git clone [https://github.com/honeysa18/RespiSense.git](https://github.com/honeysa18/RespiSense.git)
    cd RespiSense
 2. Install Dependencies
+   ```bash
    pip install -r requirements.txt
-3. Run the application:
+4. Run the application:
+   ```bash
    python -m streamlit run app.py
    
 ## 📊 How it Works
@@ -52,6 +54,3 @@ Machine Learning: Scikit-Learn
 Audio Analysis: Librosa
 
 Signal Processing: SciPy / NumPy
-   ```bash
-   git clone [https://github.com/honeysa18/RespiSense.git](https://github.com/honeysa18/RespiSense.git)
-   cd RespiSense
