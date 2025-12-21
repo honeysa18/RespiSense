@@ -18,7 +18,7 @@ DATASET_ROOT = "."   # current folder (KHacks)
 
 COUGH_FOLDER = "Cough"
 NON_COUGH_FOLDER = "Noncough"
-MODEL_PATH = "cough_model.joblib"
+MODEL_PATH = "Models/cough_model.joblib"
 
 
 '''DATASET_ROOT = "Dataset_Cough"   # relative path

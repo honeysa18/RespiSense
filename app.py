@@ -9,9 +9,8 @@ from scipy.signal import spectrogram
 import matplotlib.pyplot as plt
 
 # Import your custom modules
-import RR_HR
-import cough
-import aqi
+from Modules import RR_HR, cough, aqi
+
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="RespiSense AI", page_icon="🫁", layout="wide")
@@ -19,8 +18,8 @@ st.set_page_config(page_title="RespiSense AI", page_icon="🫁", layout="wide")
 # --- 1. LOAD AI MODEL ---
 @st.cache_resource
 def load_ai_brain():
-    if os.path.exists('respi_model.h5'):
-        return load_model('respi_model.h5')
+    if os.path.exists('Models/respi_model.h5'):
+        return load_model('Models/respi_model.h5')
     return None
 
 model = load_ai_brain()
