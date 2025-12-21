@@ -47,3 +47,30 @@ def process_vitals(df):
     except Exception as e:
         print(f"Error in RR_HR logic: {e}")
         return 0, 0, np.zeros(100), np.zeros(100), np.linspace(0, 10, 100)
+
+if __name__ == "__main__":
+    # 1. Ask for the file path
+    file_path = input("Enter the path to your CSV file: ")
+
+    try:
+        # 2. Load the CSV
+        data = pd.read_csv(file_path)
+        print(f"--- Processing {file_path} ---")
+
+        # 3. Call your function
+        rr, hr, rr_filt, hr_filt, time = process_vitals(data)
+
+        # 4. Display the results
+        print("-" * 30)
+        print(f"Results:")
+        print(f"Respiratory Rate (RR): {rr:.2f} breaths/min")
+        print(f"Heart Rate (HR):        {hr:.2f} BPM")
+        print("-" * 30)
+        
+        if rr == 0 and hr == 0:
+            print("Warning: The output is 0. Check if your column names match the CSV.")
+
+    except FileNotFoundError:
+        print("Error: File not found. Make sure the path is correct.")
+    except Exception as e:
+        print(f"An error occurred during testing: {e}")

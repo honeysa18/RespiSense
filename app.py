@@ -8,9 +8,9 @@ from tensorflow.keras.models import load_model
 from scipy.signal import spectrogram
 import matplotlib.pyplot as plt
 
-# Import your custom modules
+# Import custom modules
+# Note: Ensure these files are in a folder named 'Modules' with an __init__.py file
 from Modules import RR_HR, cough, aqi
-
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="RespiSense AI", page_icon="🫁", layout="wide")
@@ -18,8 +18,9 @@ st.set_page_config(page_title="RespiSense AI", page_icon="🫁", layout="wide")
 # --- 1. LOAD AI MODEL ---
 @st.cache_resource
 def load_ai_brain():
-    if os.path.exists('Models/respi_model.h5'):
-        return load_model('Models/respi_model.h5')
+    model_path = 'Models/respi_model.h5'
+    if os.path.exists(model_path):
+        return load_model(model_path)
     return None
 
 model = load_ai_brain()
@@ -40,28 +41,25 @@ def get_ai_prediction(signal, fs):
 st.title("🫁 RespiSense: Integrated Respiratory Intelligence")
 st.markdown("### *Multi-Modal Monitoring: Kinematic, Acoustic & Environmental Correlation*")
 
+# Initialize session state for risk assessment persistence
+if 'rr' not in st.session_state: st.session_state.rr = 0
+if 'risk_score' not in st.session_state: st.session_state.risk_score = 0
+if 'cough_count' not in st.session_state: st.session_state.cough_count = 0
+if 'current_aqi' not in st.session_state: st.session_state.current_aqi = 0
+
 # --- 4. SIDEBAR: ENVIRONMENTAL CONTEXT ---
 with st.sidebar:
     st.header("🌍 Environmental Data")
-    st.info("Retrieve live air quality data to assess external triggers.")
-    
     selected_city = st.selectbox("Select Patient City", ["Chennai", "Delhi", "Bangalore"])
     user_api_key = st.text_input("OpenWeather API Key (Optional)", type="password")
-    
-    # Initialize session state for AQI
-    if 'current_aqi' not in st.session_state:
-        st.session_state['current_aqi'] = 0
-        st.session_state['current_status'] = "Not Checked"
 
     if st.button("Check Air Quality"):
         env_data = aqi.get_air_quality(selected_city, user_api_key)
-        st.session_state['current_aqi'] = env_data['aqi']
-        st.session_state['current_status'] = env_data['status']
-        st.session_state['current_pm25'] = env_data['pm25']
+        st.session_state.current_aqi = env_data['aqi']
+        st.session_state.current_status = env_data['status']
+        st.session_state.current_pm25 = env_data['pm25']
         
-    st.metric("AQI Level", f"{st.session_state['current_aqi']}/5", st.session_state['current_status'])
-    if 'current_pm25' in st.session_state:
-        st.caption(f"PM2.5: {st.session_state['current_pm25']} µg/m³")
+    st.metric("AQI Level", f"{st.session_state.current_aqi}/5", st.session_state.get('current_status', "Not Checked"))
 
 # --- 5. TABS FOR ANALYSIS ---
 tab_vitals, tab_acoustic = st.tabs(["🛌 Passive Check (Vitals)", "🎤 Active Mode (Cough)"])
@@ -75,17 +73,14 @@ with tab_vitals:
     
     if uploaded_csv:
         df = pd.read_csv(uploaded_csv)
-        
-        # Process Vitals via RR_HR.py
         with st.spinner("Analyzing Vitals..."):
             rr, hr, rr_wave, hr_wave, t = RR_HR.process_vitals(df)
+            st.session_state.rr = rr
         
-        # Display Metrics
         m1, m2, m3 = st.columns(3)
-        m1.metric("Respiratory Rate", f"{rr:.1f} BPM", delta="Normal" if 12<=rr<=20 else "Abnormal", delta_color="normal" if 12<=rr<=20 else "inverse")
+        m1.metric("Respiratory Rate", f"{rr:.1f} BPM", delta="Normal" if 12<=rr<=20 else "Abnormal")
         m2.metric("Heart Rate", f"{hr:.1f} BPM")
         
-        # AI Pattern Recognition
         if model is not None:
             sig_col = 'Linear Acceleration z (m/s^2)' if 'Linear Acceleration z (m/s^2)' in df.columns else 'z'
             raw_sig = df[sig_col].values
@@ -96,13 +91,18 @@ with tab_vitals:
                 start = (len(raw_sig) // 2) - (chunk_size // 2)
                 chunk = raw_sig[start : start + chunk_size]
                 risk_score = get_ai_prediction(chunk, fs)
+                st.session_state.risk_score = risk_score
                 
-                diagnosis = "⚠️ Abnormal Pattern" if risk_score > 0.5 else "✅ Healthy Pattern"
-                m3.metric("AI Diagnosis", diagnosis, f"Risk: {risk_score:.0%}")
+                # Fixed Fused Logic
+                vitals_abnormal = rr < 12 or rr > 25
+                if vitals_abnormal or risk_score > 0.4:
+                    diagnosis, status_color = "⚠️ Abnormal Pattern", "inverse"
+                else:
+                    diagnosis, status_color = "✅ Healthy Pattern", "normal"
+                
+                m3.metric("AI Diagnosis", diagnosis, f"Risk: {risk_score:.0%}", delta_color=status_color)
             else:
-                m3.warning("Data too short for AI")
-        else:
-            m3.warning("AI Model not loaded.")
+                st.warning("Data too short for AI analysis.")
 
         # Clinical Visualization
         st.divider()
@@ -121,6 +121,7 @@ with tab_vitals:
         
         st.pyplot(fig)
 
+
 # ==========================================
 # TAB 2: ACTIVE MODE (AUDIO COUGH DATA)
 # ==========================================
@@ -133,69 +134,37 @@ with tab_acoustic:
         with open(temp_path, "wb") as f:
             f.write(uploaded_audio.getbuffer())
         
-        with st.spinner("Scanning for cough events..."):
-            label, confidence, count = cough.analyze_audio(temp_path)
+        label, confidence, count = cough.analyze_audio(temp_path)
+        st.session_state.cough_count = count
         
         a1, a2 = st.columns(2)
         a1.metric("Detected Coughs", count)
         a2.metric("AI Confidence", f"{confidence:.1%}")
         
-        if count > 5:
-            st.error(f"High Irritation Alert: {count} coughs detected.")
-        elif count > 0:
-            st.warning(f"Mild Irritation: {count} coughs detected.")
-        else:
-            st.success("Clear Sample: No coughing patterns found.")
-
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
+        if count > 5: st.error(f"High Irritation Alert")
+        elif count > 0: st.warning(f"Mild Irritation")
+        
+        if os.path.exists(temp_path): os.remove(temp_path)
 
 # ==========================================
-# MASTER RISK CORRELATION (THE FINAL SCORE)
+# MASTER RISK CORRELATION
 # ==========================================
 st.divider()
-st.header("📋 Master Health Summary & Risk Assessment")
+st.header("📋 Master Health Summary")
 
-# --- INITIALIZE DEFAULTS ---
-# This ensures the correlation block always appears
-res_rr = 0
-res_ai = 0
-res_cough = 0
-res_env = 0
+# Score Calculation
+score_rr = 35 if (st.session_state.rr > 22 or (0 < st.session_state.rr < 10)) else 0
+score_ai = 25 if st.session_state.risk_score > 0.5 else 0
+score_cough = 20 if st.session_state.cough_count > 5 else 0
+score_env = 20 if st.session_state.current_aqi >= 4 else 0
 
-# 1. Check Vitals (from locals or session state)
-if 'rr' in locals():
-    res_rr = 35 if (rr > 22 or rr < 10) else 0
+total_score = score_rr + score_ai + score_cough + score_env
 
-# 2. Check AI Prediction
-if 'risk_score' in locals():
-    res_ai = 25 if risk_score > 0.5 else 0
-
-# 3. Check Cough Count (This often resets, so we check if 'count' exists)
-if 'count' in locals():
-    res_cough = 20 if count > 5 else 0
-
-# 4. Check Environment (from session state)
-current_aqi = st.session_state.get('current_aqi', 0)
-res_env = 20 if current_aqi >= 4 else 0
-
-# --- FINAL CALCULATION ---
-total_score = res_rr + res_ai + res_cough + res_env
-
-c_res, c_msg = st.columns([1, 2])
-
-with c_res:
+col_left, col_right = st.columns([1, 2])
+with col_left:
     st.metric("Total Risk Index", f"{total_score}%")
     st.progress(total_score / 100)
-
-with c_msg:
-    if total_score >= 70:
-        st.error("🚨 CRITICAL RISK: High correlation between respiratory distress and environment.")
-    elif total_score >= 40:
-        st.warning("⚠️ MODERATE RISK: Respiratory symptoms and triggers detected.")
-    elif total_score > 0:
-        st.info("✅ MONITORING: Some data detected. Results will update as you upload more files.")
-    else:
-        st.success("✅ STABLE: No risks detected yet. Please upload data to begin.")
-
-st.info("💡 Note: This is an AI-assisted prototype for K!Hacks and not for clinical diagnosis.")
+with col_right:
+    if total_score >= 70: st.error("🚨 CRITICAL RISK: Immediate medical review recommended.")
+    elif total_score >= 40: st.warning("⚠️ MODERATE RISK: Respiratory symptoms and triggers detected.")
+    else: st.success("✅ STABLE: No high-risk correlations found.")

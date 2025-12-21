@@ -1,117 +1,120 @@
 import pandas as pd
 import numpy as np
-from scipy.signal import spectrogram
-import cv2  # pip install opencv-python
 import os
+import cv2
+import matplotlib.pyplot as plt
+from scipy.signal import spectrogram
+import tensorflow as tf
+from tensorflow.keras import layers, models
+from tensorflow.keras.applications import MobileNetV2
 
-# --- CONFIGURATION ---
-WINDOW_SEC = 10  # We cut signal into 10s chunks
-files = ['HData.csv', 'KData.csv', 'RData.csv','abnormal_bradypnea.csv','abnormal_tachypnea.csv','abnormal_irregular.csv'] # Your 3 filenames
-labels = [0, 0, 0, 1, 1, 1]  # 0=Normal, 1=Abnormal (You must decide this manually!)
+# --- 1. CONFIGURATION ---
+BASE_DATA_DIR = "Data"
+OUTPUT_DIR = "Models"
+TARGET_SIZE = (224, 224)  # Required for MobileNetV2
+CATEGORIES = {
+    "Normal_breath": 0,
+    "Abnormal_breath": 1
+}
 
-X_train = []
-y_train = []
+if not os.path.exists(OUTPUT_DIR):
+    os.makedirs(OUTPUT_DIR)
 
-def signal_to_image(signal, fs):
-    """ Converts 1D signal to 224x224 Image for MobileNet """
-    # 1. Spectrogram
+# --- 2. SIGNAL PROCESSING ---
+def create_spectrogram(signal, fs=50):
+    """Converts 1D sensor signal to 2D spectrogram image"""
     f, t, Sxx = spectrogram(signal, fs, nperseg=256, noverlap=128)
-    # 2. Normalize to dB and 0-255 range
-    S_db = 10 * np.log10(Sxx + 1e-10)
+    S_db = 10 * np.log10(Sxx + 1e-10) # Convert to Decibels
+    
+    # Normalize to 0-255 for Image Processing
     S_min, S_max = S_db.min(), S_db.max()
-    img = 255 * (S_db - S_min) / (S_max - S_min)
-    img = img.astype(np.uint8)
-    # 3. Resize to 224x224 (Model Input Size)
-    img_resized = cv2.resize(img, (224, 224))
-    # 4. Stack to make 3 channels (RGB)
+    if S_max > S_min:
+        img = 255 * (S_db - S_min) / (S_max - S_min)
+    else:
+        img = np.zeros(S_db.shape)
+        
+    # Resize and convert to 3-channel (RGB) for AI model compatibility
+    img_resized = cv2.resize(img.astype(np.uint8), TARGET_SIZE)
     img_rgb = np.stack((img_resized,)*3, axis=-1)
     return img_rgb
 
-# --- PROCESSING LOOP ---
-for i, file_path in enumerate(files):
-    try:
-        # Load Data (Robust loading from your previous code)
-        df = pd.read_csv(file_path)
-        if 'Linear Acceleration z (m/s^2)' in df.columns:
-            signal = df['Linear Acceleration z (m/s^2)'].values
-        elif 'z' in df.columns:
-            signal = df['z'].values
-        else:
-            signal = df.iloc[:, 3].values # Fallback
-            
-        t = df['Time (s)'].values
-        fs = 1 / np.median(np.diff(t))
+# --- 3. DATA PREPARATION ---
+def prepare_respi_data():
+    all_images = []
+    all_labels = []
+
+    print(f"🚀 Starting Data Prep in: {BASE_DATA_DIR}")
+
+    for category, label in CATEGORIES.items():
+        folder_path = os.path.join(BASE_DATA_DIR, category)
         
-        # SLICING LOGIC (The Data Augmentation)
-        samples_per_chunk = int(WINDOW_SEC * fs)
+        if not os.path.exists(folder_path):
+            print(f"⚠️ Warning: Folder not found: {folder_path}")
+            continue
+
+        print(f"📂 Processing Category: {category}")
         
-        # Loop through file and cut chunks
-        # e.g., 0-10s, 10-20s, 20-30s...
-        for start in range(0, len(signal) - samples_per_chunk, samples_per_chunk):
-            chunk = signal[start : start + samples_per_chunk]
-            
-            # Convert chunk to Image
-            img = signal_to_image(chunk, fs)
-            
-            # Add to Training Set
-            X_train.append(img)
-            y_train.append(labels[i]) # Inherit label from parent file
-            
-    except Exception as e:
-        print(f"Skipping {file_path}: {e}")
+        for filename in os.listdir(folder_path):
+            if filename.endswith(".csv"):
+                file_path = os.path.join(folder_path, filename)
+                try:
+                    df = pd.read_csv(file_path)
+                    # Support both standard name and short 'z'
+                    sig_col = next((col for col in df.columns if 'z' in col.lower()), None)
+                    
+                    if sig_col:
+                        signal = df[sig_col].values
+                        # Ensure at least 10 seconds of data at 50Hz
+                        if len(signal) >= 500:
+                            mid = len(signal) // 2
+                            chunk = signal[mid-250 : mid+250]
+                            
+                            spec_img = create_spectrogram(chunk)
+                            all_images.append(spec_img)
+                            all_labels.append(label)
+                except Exception as e:
+                    print(f"  ❌ Error processing {filename}: {e}")
 
-# Convert to Numpy Arrays for AI
-X_train = np.array(X_train)
-y_train = np.array(y_train)
-
-print(f"✅ Data Preparation Complete!")
-print(f"Original Files: {len(files)}")
-print(f"Generated Samples: {X_train.shape[0]}") # Should be ~12
-print(f"Training Shape: {X_train.shape}")
+    return np.array(all_images), np.array(all_labels)
 
 
-# --- IMPORT TENSORFLOW ---
-import tensorflow as tf
-from tensorflow.keras.applications import MobileNetV2
-from tensorflow.keras.layers import Dense, GlobalAveragePooling2D
-from tensorflow.keras.models import Model
-from tensorflow.keras.optimizers import Adam
-
-def train_model(X_data, y_data):
-    print("\n🚀 Starting Transfer Learning...")
-
-    # 1. Load the Pre-Trained Brain (MobileNetV2)
-    # include_top=False means we chop off the head (ImageNet classifier)
-    # input_shape=(224, 224, 3) matches the images we made
-    base_model = MobileNetV2(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
+# --- 5. MODEL TRAINING ---
+def train_respi_model(X, y):
+    print("\n🧠 Building and Training the AI Model...")
     
-    # 2. Freeze the Base
-    # We don't want to retrain MobileNet, just our new layers
-    base_model.trainable = False 
+    # Use Transfer Learning with MobileNetV2
+    base_model = MobileNetV2(input_shape=(224, 224, 3), include_top=False, weights='imagenet')
+    base_model.trainable = False # Freeze pretrained layers
 
-    # 3. Add Your "Medical" Head
-    x = base_model.output
-    x = GlobalAveragePooling2D()(x) # Flatten 
-    x = Dense(16, activation='relu')(x) # Intermediate layer
-    predictions = Dense(1, activation='sigmoid')(x) # Output: 0 to 1
+    model = models.Sequential([
+        base_model,
+        layers.GlobalAveragePooling2D(),
+        layers.Dense(64, activation='relu'),
+        layers.Dropout(0.3),
+        layers.Dense(1, activation='sigmoid') # Binary Output: 0 or 1
+    ])
 
-    # 4. Compile
-    model = Model(inputs=base_model.input, outputs=predictions)
-    model.compile(optimizer=Adam(learning_rate=0.001), 
-                  loss='binary_crossentropy', 
-                  metrics=['accuracy'])
+    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 
-    # 5. Train!
-    # validation_split=0.2 means it uses 20% of data to test itself while training
-    history = model.fit(X_data, y_data, epochs=10, batch_size=4, validation_split=0.2)
+    print("🏁 Starting training (10 Epochs)...")
+    model.fit(X, y, epochs=10, batch_size=16, validation_split=0.2)
+
+    # --- SAVE THE FINAL MODEL ---
+    model_path = os.path.join(OUTPUT_DIR, "respi_model.h5")
+    model.save(model_path)
+    print(f"\n✅ SUCCESS: Model saved as '{model_path}'")
+
+# --- 6. MAIN EXECUTION ---
+if __name__ == "__main__":
+    X, y = prepare_respi_data()
     
-    # 6. Save the Model
-    model.save('respi_model.h5')
-    print("\n✅ SUCCESS: Model saved as 'respi_model.h5'")
-    return history
-
-# --- EXECUTE TRAINING ---
-if len(X_train) > 0:
-    train_model(X_train, y_train)
-else:
-    print("❌ Error: No data was generated. Check your CSV filenames.")
+    if len(X) > 0:
+        print(f"📊 Dataset Ready: {len(X)} samples found.")
+        
+        # 1. Visualize one to make sure it looks correct
+        # show_preview(X, y)
+        
+        # 2. Train the model to generate the .h5 file
+        train_respi_model(X, y)
+    else:
+        print("\n❌ FATAL: No data found. Ensure your 'Data' folder has CSVs.")
