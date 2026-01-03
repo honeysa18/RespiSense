@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Weather + Air Quality + Pollen</title>
+</head>
+<body>
+
+<h2>Weather + Air Quality + Pollen</h2>
+<p id="status">Getting your location…</p>
+<p id="info"></p>
+
+<script>
+const API_KEY = "14f908d5b1ff835896a635a7d8adbded";
+
+if (!("geolocation" in navigator)) {
+  document.getElementById("status").textContent = "Geolocation not supported.";
+}
+
+navigator.geolocation.getCurrentPosition(position => {
+  const lat = position.coords.latitude;
+  const lon = position.coords.longitude;
+
+  document.getElementById("status").textContent =
+    `Location: (${lat.toFixed(4)}, ${lon.toFixed(4)})`;
+
+  let output = "";
+
+  // ---------- WEATHER ----------
+  fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${API_KEY}`)
+    .then(r => r.json())
+    .then(w => {
+      output += `Temp: ${w.main.temp} °C<br>`;
+      output += `Humidity: ${w.main.humidity}%<br>`;
+      document.getElementById("info").innerHTML = output;
+    });
+
+  // ---------- AIR QUALITY + AQI ----------
+  fetch(`https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${API_KEY}`)
+    .then(r => r.json())
+    .then(a => {
+      const aqi = a.list[0].main.aqi;
+      const pm25 = a.list[0].components.pm2_5;
+      const pm10 = a.list[0].components.pm10;
+
+      const aqiScale = {
+        1: { text: "Good", color: "green" },
+        2: { text: "Fair", color: "#9ACD32" },
+        3: { text: "Moderate", color: "orange" },
+        4: { text: "Poor", color: "red" },
+        5: { text: "Very Poor", color: "purple" }
+      };
+
+      output += `<span style="color:${aqiScale[aqi].color}">
+                   AQI: ${aqi} (${aqiScale[aqi].text})
+                 </span><br>`;
+      output += `PM2.5: ${pm25} µg/m³<br>`;
+      output += `PM10: ${pm10} µg/m³<br>`;
+
+      document.getElementById("info").innerHTML = output;
+    });
+
+  // ---------- POLLEN ----------
+  fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&hourly=grass_pollen`)
+    .then(r => r.json())
+    .then(p => {
+      const pollen = p.hourly.grass_pollen[0];
+      output += `Grass pollen: ${pollen ?? "Not available"}<br>`;
+      document.getElementById("info").innerHTML = output;
+    });
+
+}, () => {
+  document.getElementById("status").textContent = "Location access denied.";
+});
+</script>
+
+</body>
+</html>

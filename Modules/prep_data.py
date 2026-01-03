@@ -7,6 +7,8 @@ from scipy.signal import spectrogram
 import tensorflow as tf
 from tensorflow.keras import layers, models
 from tensorflow.keras.applications import MobileNetV2
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+
 
 # --- 1. CONFIGURATION ---
 BASE_DATA_DIR = "Data"
@@ -23,7 +25,10 @@ if not os.path.exists(OUTPUT_DIR):
 # --- 2. SIGNAL PROCESSING ---
 def create_spectrogram(signal, fs=50):
     """Converts 1D sensor signal to 2D spectrogram image"""
-    f, t, Sxx = spectrogram(signal, fs, nperseg=256, noverlap=128)
+    # Window: 2-3 seconds to capture 0.5-1 full breath
+    window_length = 128  # 2.56 seconds at 50 Hz
+    overlap = 96         # 75% overlap for smooth transitions
+    f, t, Sxx = spectrogram(signal, fs, nperseg=window_length, noverlap=overlap)
     S_db = 10 * np.log10(Sxx + 1e-10) # Convert to Decibels
     
     # Normalize to 0-255 for Image Processing
@@ -72,6 +77,7 @@ def prepare_respi_data():
                             spec_img = create_spectrogram(chunk)
                             all_images.append(spec_img)
                             all_labels.append(label)
+                            print(f"  ✅ Processed {filename}")
                 except Exception as e:
                     print(f"  ❌ Error processing {filename}: {e}")
 
@@ -89,20 +95,55 @@ def train_respi_model(X, y):
     model = models.Sequential([
         base_model,
         layers.GlobalAveragePooling2D(),
-        layers.Dense(64, activation='relu'),
-        layers.Dropout(0.3),
+        layers.Dense(32, activation='relu'),
+        layers.Dropout(0.5),
         layers.Dense(1, activation='sigmoid') # Binary Output: 0 or 1
     ])
 
     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 
+    # Augmentation to improve generalization
+    # THIS DOES THE AUGMENTATION during training
+    datagen = ImageDataGenerator(
+        rotation_range=5,
+        width_shift_range=0.1,
+        height_shift_range=0.05,
+        zoom_range=0.1,
+        horizontal_flip=False,
+        fill_mode='nearest'
+    )
+
+    early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True)
+
+    # Split for validation
+    split_idx = int(0.8 * len(X))
+    X_train, X_val = X[:split_idx], X[split_idx:]
+    y_train, y_val = y[:split_idx], y[split_idx:]
+    
     print("🏁 Starting training (10 Epochs)...")
-    model.fit(X, y, epochs=10, batch_size=16, validation_split=0.2)
+    model.fit(
+        datagen.flow(X_train, y_train, batch_size=4), # Use augmented data
+        epochs=20,
+        validation_data=(X_val, y_val),
+        callbacks=[early_stop]
+    )
 
     # --- SAVE THE FINAL MODEL ---
     model_path = os.path.join(OUTPUT_DIR, "respi_model.h5")
     model.save(model_path)
     print(f"\n✅ SUCCESS: Model saved as '{model_path}'")
+
+#--- 4. VISUALIZATION ---
+def show_preview(X, y):
+    """Displays the first generated spectrogram to verify logic"""
+    if len(X) >0:
+        plt.figure(figsize=(8, 5))
+        plt.imshow(X[3])
+        label_text = "Abnormal" if y[0] == 1 else "Normal"
+        plt.title(f"AI Input Preview (Label: {label_text})")
+        plt.axis('off')
+        print("🖼️ Showing spectrogram preview... (Close the window to continue to training)")
+        plt.show()
 
 # --- 6. MAIN EXECUTION ---
 if __name__ == "__main__":
@@ -112,7 +153,7 @@ if __name__ == "__main__":
         print(f"📊 Dataset Ready: {len(X)} samples found.")
         
         # 1. Visualize one to make sure it looks correct
-        # show_preview(X, y)
+        show_preview(X, y)
         
         # 2. Train the model to generate the .h5 file
         train_respi_model(X, y)
