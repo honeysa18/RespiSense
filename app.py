@@ -8,7 +8,7 @@ from tensorflow.keras.models import load_model
 from scipy.signal import spectrogram
 import matplotlib.pyplot as plt
 from google import genai
-from chatbot import chatbot_response
+
 
 # Import custom modules
 from Modules import vitals, cough
@@ -558,14 +558,3 @@ else:
 
 st.divider()
 st.caption("⚠️ **Disclaimer:** This is an AI-assisted prototype for GDG TechSprint 2026 and is NOT intended for clinical diagnosis. Always consult healthcare professionals for medical decisions.")
-
-@app.route("/chat", methods=["POST"])
-def chat():
-    data = request.json
-
-    user_message = data.get("message")
-    risk_level = data.get("risk_level")
-
-    reply = chatbot_response(user_message, risk_level)
-
-    return jsonify({"reply": reply})

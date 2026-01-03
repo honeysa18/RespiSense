@@ -103,7 +103,6 @@ def train_respi_model(X, y):
     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 
     # Augmentation to improve generalization
-    # THIS DOES THE AUGMENTATION during training
     datagen = ImageDataGenerator(
         rotation_range=5,
         width_shift_range=0.1,
