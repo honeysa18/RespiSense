@@ -35,13 +35,13 @@ Get Gemini API Key from Google AI Studio
 Enter API key in the sidebar when app launches
 
 📊 Usage
-Upload Phyphox CSV: Record chest accelerometer data (lying supine, 60 seconds)
+Upload Phyphox CSV: Record chest accelerometer data (lying supine, 60 seconds) - Normal and Abnormal Breathe
 
-Upload Audio: Record cough or breathing sounds
+Upload Audio: Record cough or breathing sounds - Cough and Non Cough files
 
-Upload Voice: Record sustained "Ahhh" sound (3-5 seconds)
+Upload Voice: Record sustained "Ahhh" sound (3-5 seconds) - Audio Samples
 
-Load Environmental Data: Fetch real-time air quality
+Load Environmental Data: Fetch real-time air quality - Fetched from APIs
 
 Generate Report: Click to get Gemini clinical assessment
 
@@ -54,15 +54,27 @@ Gemini Fusion Layer → Clinical Reasoning
 Output → Risk Score + RespiStant Alerts
 
 🛠️ Technologies
-Frontend: Streamlit
 
-ML Models: TensorFlow/Keras (MobileNetV2), Scikit-learn
+Frontend & Deployment : Streamlit, Streamlit Community Cloud, HTML/CSS/JavaScript
 
-LLM: Google Gemini 2.5 Flash
+Machine Learning & AI : TensorFlow 2.17.0 / Keras, MobileNetV2, Scikit-learn, Google Gemini 2.0 Flash
 
-Signal Processing: SciPy, Librosa
+Signal Processing & Audio Analysis : SciPy, Librosa, Parselmouth (Praat), NumPy, Pandas
 
-APIs: OpenWeatherMap, Open-Meteo
+Sensor : Smartphone accelerometer (seismocardiography)
+
+External APIs & Environmental Context : Google Maps API, Google Geolocation API, Google Weather API, Google Air Quality API, Google Pollen API
+
+Data Visualization : Matplotlib, OpenCV, Streamlit Charts
+
+Medical Data Sources & Training Datasets : 
+1. Respiratory Sound Database - Kaggle/ICBHI 2017 Scientific Challenge (920 annotated audio samples)
+2. COVID-19 Cough Audio Dataset - Open-source respiratory distress recordings
+3. Voice Pathology Database - Saarbrucken Voice Database (healthy vs. pathological voice recordings)
+4. Custom Phyphox Accelerometer Data - Self-collected seismocardiography recordings for model validation
+5. Clinical Guidelines - WHO respiratory rate norms, ATS/ERS voice quality standards
+
+Development Tools : Python 3.11, Git/GitHub, Google Colab, Joblib, VS Code
 
 📝 License
 This project is a hackathon prototype for educational purposes.
@@ -71,6 +83,5 @@ This project is a hackathon prototype for educational purposes.
 XNN0V473R5! - GDG TechSprint 2026
 
 ⚠️ Disclaimer: This is an AI-assisted prototype and NOT for clinical diagnosis.
-
 # Run application
 streamlit run app.py
