@@ -1,10 +1,10 @@
-# 🫁 RespiSense AI - Intelligent Respiratory Profiler
+# RespiSense AI - Intelligent Respiratory Profiler
 
 **GDG TechSprint 2026 Submission**
 
 RespiSense AI is a multi-modal respiratory monitoring system that detects "invisible trigger intersections" between internal physiology and external environment using Gemini-powered data fusion.
 
-## 🌟 Features
+## FEATURES
 
 ### Layer 1: Multi-Modal Sensing
 - **Kinematic Vital Monitor**: Seismocardiography-based RR & HR extraction from smartphone accelerometer
@@ -17,7 +17,7 @@ RespiSense AI is a multi-modal respiratory monitoring system that detects "invis
 - Invisible trigger correlation (physiology × environment)
 - Risk stratification with RespiStant proactive alerts
 
-## 🚀 Installation
+## INSTALLATION
 
 ```bash
 # Clone repository
@@ -29,23 +29,23 @@ pip install -r requirements.txt
 
 ```
 
-🔑 Setup
-Get Gemini API Key from Google AI Studio
+SETUP
+-> Get Gemini API Key from Google AI Studio
 
-Enter API key in the sidebar when app launches
+-> Enter API key in the sidebar when app launches
 
-📊 Usage
-Upload Phyphox CSV: Record chest accelerometer data (lying supine, 60 seconds) - Normal and Abnormal Breathe
+USAGE
+-> Upload CSV: Record chest accelerometer data (lying supine, 60 seconds) - Normal and Abnormal Breathe
 
-Upload Audio: Record cough or breathing sounds - Cough and Non Cough files
+-> Upload Audio: Record cough or breathing sounds - Cough and Non Cough files
 
-Upload Voice: Record sustained "Ahhh" sound (3-5 seconds) - Audio Samples
+-> Upload Voice: Record sustained "Ahhh" sound (3-5 seconds) - Audio Samples
 
-Load Environmental Data: Fetch real-time air quality - Fetched from APIs
+-> Load Environmental Data: Fetch real-time air quality - Fetched from APIs
 
-Generate Report: Click to get Gemini clinical assessment
+-> Generate Report: Click to get Gemini clinical assessment
 
-🏗️ Architecture
+ARCHITECTURE
 
 Input Layer → [Vitals | Cough | Voice | Environment]
            ↓
@@ -53,7 +53,7 @@ Gemini Fusion Layer → Clinical Reasoning
            ↓
 Output → Risk Score + RespiStant Alerts
 
-🛠️ Technologies
+TECHNOLOGIES
 
 Frontend & Deployment : Streamlit, Streamlit Community Cloud, HTML/CSS/JavaScript
 
@@ -76,12 +76,15 @@ Medical Data Sources & Training Datasets :
 
 Development Tools : Python 3.11, Git/GitHub, Google Colab, Joblib, VS Code
 
-📝 License
+LICENSE
 This project is a hackathon prototype for educational purposes.
 
-👥 Team
+TEAM
 XNN0V473R5! - GDG TechSprint 2026
 
-⚠️ Disclaimer: This is an AI-assisted prototype and NOT for clinical diagnosis.
-# Run application
-streamlit run app.py
+Disclaimer: This is an AI-assisted prototype and NOT for clinical diagnosis.
+
+# APPLICATION
+```bash
+https://respisense.streamlit.app/
+```
