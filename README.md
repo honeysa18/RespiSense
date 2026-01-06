@@ -30,6 +30,7 @@ pip install -r requirements.txt
 ```
 
 SETUP
+
 -> Get Gemini API Key from Google AI Studio
 
 -> Enter API key in the sidebar when app launches
