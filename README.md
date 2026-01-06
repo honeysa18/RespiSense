@@ -49,13 +49,13 @@ USAGE
 
 ARCHITECTURE
 
+```bash
 Input Layer → [Vitals | Cough | Voice | Environment]
-
            ↓
 Gemini Fusion Layer → Clinical Reasoning
-
            ↓
 Output → Risk Score + RespiStant Alerts
+```
 
 TECHNOLOGIES
 
