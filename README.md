@@ -36,6 +36,7 @@ SETUP
 -> Enter API key in the sidebar when app launches
 
 USAGE
+
 -> Upload CSV: Record chest accelerometer data (lying supine, 60 seconds) - Normal and Abnormal Breathe
 
 -> Upload Audio: Record cough or breathing sounds - Cough and Non Cough files
@@ -49,8 +50,10 @@ USAGE
 ARCHITECTURE
 
 Input Layer → [Vitals | Cough | Voice | Environment]
+
            ↓
 Gemini Fusion Layer → Clinical Reasoning
+
            ↓
 Output → Risk Score + RespiStant Alerts
 
@@ -78,14 +81,17 @@ Medical Data Sources & Training Datasets :
 Development Tools : Python 3.11, Git/GitHub, Google Colab, Joblib, VS Code
 
 LICENSE
+
 This project is a hackathon prototype for educational purposes.
 
 TEAM
+
 XNN0V473R5! - GDG TechSprint 2026
 
 Disclaimer: This is an AI-assisted prototype and NOT for clinical diagnosis.
 
 # APPLICATION
+
 ```bash
 https://respisense.streamlit.app/
 ```
